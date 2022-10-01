@@ -84,25 +84,6 @@ dir.create( paste0("./exp/", PARAM$experimento, "/" ), showWarnings = FALSE )
 setwd( paste0("./exp/", PARAM$experimento, "/" ) )   #Establezco el Working Directory DEL EXPERIMENTO
 
 
-#corrijo manualmente el drifting de  Visa_fultimo_cierre
-dapply[ Visa_fultimo_cierre== 1, Visa_fultimo_cierre :=  4 ]
-dapply[ Visa_fultimo_cierre== 7, Visa_fultimo_cierre := 11 ]
-dapply[ Visa_fultimo_cierre==21, Visa_fultimo_cierre := 25 ]
-dapply[ Visa_fultimo_cierre==14, Visa_fultimo_cierre := 18 ]
-dapply[ Visa_fultimo_cierre==28, Visa_fultimo_cierre := 32 ]
-dapply[ Visa_fultimo_cierre==35, Visa_fultimo_cierre := 39 ]
-dapply[ Visa_fultimo_cierre> 39, Visa_fultimo_cierre := Visa_fultimo_cierre + 4 ]
-
-#corrijo manualmente el drifting de  Visa_fultimo_cierre
-dapply[ Master_fultimo_cierre== 1, Master_fultimo_cierre :=  4 ]
-dapply[ Master_fultimo_cierre== 7, Master_fultimo_cierre := 11 ]
-dapply[ Master_fultimo_cierre==21, Master_fultimo_cierre := 25 ]
-dapply[ Master_fultimo_cierre==14, Master_fultimo_cierre := 18 ]
-dapply[ Master_fultimo_cierre==28, Master_fultimo_cierre := 32 ]
-dapply[ Master_fultimo_cierre==35, Master_fultimo_cierre := 39 ]
-dapply[ Master_fultimo_cierre> 39, Master_fultimo_cierre := Master_fultimo_cierre + 4 ]
-
-
 
 #dejo los datos en el formato que necesita LightGBM
 dtrain  <- lgb.Dataset( data= data.matrix(  dataset[ train==1L, campos_buenos, with=FALSE]),
@@ -136,6 +117,46 @@ fwrite( tb_importancia,
 
 #aplico el modelo a los datos sin clase
 dapply  <- dataset[ foto_mes== PARAM$input$future ]
+
+#----- arma?
+##Features con ranking
+train[,campo1:=as.integer(r_mcaja_ahorro<3 & r_mtarjeta_visa_consumo<5 & r_mprestamos_personales <17)]
+train[,campo2:=as.integer(r_mcaja_ahorro<3 & r_mtarjeta_visa_consumo<5 & r_mprestamos_personales >=17)]
+train[,campo3:=as.integer(r_mcaja_ahorro<3 & r_mtarjeta_visa_consumo>=5 & Visa_msaldototal <7919.8)]
+train[,campo4:=as.integer(r_mcaja_ahorro<3 & r_mtarjeta_visa_consumo>=5 & Visa_msaldototal >=7919.8)]
+train[,campo5:=as.integer(r_mcaja_ahorro>=3 & r_mtarjeta_visa_consumo>=5 & cpayroll_trx <1)]
+train[,campo6:=as.integer(r_mcaja_ahorro>=3 & r_mtarjeta_visa_consumo>=5 & cpayroll_trx >=1)]
+train[,campo7:=as.integer(r_mcaja_ahorro>=3 & r_mtarjeta_visa_consumo>=5 & r_mpasivos_margen <6)]
+train[,campo8:=as.integer(r_mcaja_ahorro>=3 & r_mtarjeta_visa_consumo>=5 & r_mpasivos_margen >=6)]
+
+dapply[,campo1:=as.integer(r_mcaja_ahorro<3 & r_mtarjeta_visa_consumo<5 & r_mprestamos_personales <17)]
+dapply[,campo2:=as.integer(r_mcaja_ahorro<3 & r_mtarjeta_visa_consumo<5 & r_mprestamos_personales >=17)]
+dapply[,campo3:=as.integer(r_mcaja_ahorro<3 & r_mtarjeta_visa_consumo>=5 & Visa_msaldototal <7919.8)]
+dapply[,campo4:=as.integer(r_mcaja_ahorro<3 & r_mtarjeta_visa_consumo>=5 & Visa_msaldototal >=7919.8)]
+dapply[,campo5:=as.integer(r_mcaja_ahorro>=3 & r_mtarjeta_visa_consumo>=5 & cpayroll_trx <1)]
+dapply[,campo6:=as.integer(r_mcaja_ahorro>=3 & r_mtarjeta_visa_consumo>=5 & cpayroll_trx >=1)]
+dapply[,campo7:=as.integer(r_mcaja_ahorro>=3 & r_mtarjeta_visa_consumo>=5 & r_mpasivos_margen <6)]
+dapply[,campo8:=as.integer(r_mcaja_ahorro>=3 & r_mtarjeta_visa_consumo>=5 & r_mpasivos_margen >=6)]
+#---------
+
+#corrijo manualmente el drifting de  Visa_fultimo_cierre
+dapply[ Visa_fultimo_cierre== 1, Visa_fultimo_cierre :=  4 ]
+dapply[ Visa_fultimo_cierre== 7, Visa_fultimo_cierre := 11 ]
+dapply[ Visa_fultimo_cierre==21, Visa_fultimo_cierre := 25 ]
+dapply[ Visa_fultimo_cierre==14, Visa_fultimo_cierre := 18 ]
+dapply[ Visa_fultimo_cierre==28, Visa_fultimo_cierre := 32 ]
+dapply[ Visa_fultimo_cierre==35, Visa_fultimo_cierre := 39 ]
+dapply[ Visa_fultimo_cierre> 39, Visa_fultimo_cierre := Visa_fultimo_cierre + 4 ]
+
+#corrijo manualmente el drifting de  Visa_fultimo_cierre
+dapply[ Master_fultimo_cierre== 1, Master_fultimo_cierre :=  4 ]
+dapply[ Master_fultimo_cierre== 7, Master_fultimo_cierre := 11 ]
+dapply[ Master_fultimo_cierre==21, Master_fultimo_cierre := 25 ]
+dapply[ Master_fultimo_cierre==14, Master_fultimo_cierre := 18 ]
+dapply[ Master_fultimo_cierre==28, Master_fultimo_cierre := 32 ]
+dapply[ Master_fultimo_cierre==35, Master_fultimo_cierre := 39 ]
+dapply[ Master_fultimo_cierre> 39, Master_fultimo_cierre := Master_fultimo_cierre + 4 ]
+
 
 #aplico el modelo a los datos nuevos
 prediccion  <- predict( modelo, 
