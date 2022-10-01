@@ -60,8 +60,6 @@ dataset[,
         prestamodeuda :=  mprestamos_personales+cprestamos_personales/mcuentas_saldo ]
 dataset<-transform(dataset,negativo=ifelse(0>mcuentas_saldo,1,0))
 dataset[, 
-        numeros :=  rowSums(select_if(dataset, is.numeric),na.rm = TRUE) ]
-dataset[, 
         viejoyconfiable :=  mrentabilidad_annual**2/cliente_edad ]
 
 
