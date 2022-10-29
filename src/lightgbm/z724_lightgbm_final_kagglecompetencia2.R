@@ -1,18 +1,19 @@
 # para correr el Google Cloud
 #   8 vCPU
 #  64 GB memoria RAM
-# 256 GB espacio en disco
+# 256 GB espacio en disco 
 
 # son varios archivos, subirlos INTELIGENTEMENTE a Kaggle
 
 #limpio la memoria
+
 rm( list=ls() )  #remove all objects
 gc()             #garbage collection
 
 require("data.table")
 require("lightgbm")
 
-
+#
 #defino los parametros de la corrida, en una lista, la variable global  PARAM
 #  muy pronto esto se leera desde un archivo formato .yaml
 PARAM <- list()
