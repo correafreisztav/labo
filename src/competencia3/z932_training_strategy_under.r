@@ -28,7 +28,7 @@ PARAM$train$validation   <- c( 202104 )
 PARAM$train$testing      <- c( 202105 )
 
 PARAM$train$sampling_total  <- 1.0  # 1.0 significa que NO se hace sampling total,  0.3 es quedarse con el 30% de TODOS los registros
-PARAM$train$undersampling_mayoritaria  <- 0.1   # 1.0 significa NO undersampling ,  0.1  es quedarse con el 10% de los CONTINUA
+PARAM$train$undersampling_mayoritaria  <- 0.6   # 1.0 significa NO undersampling ,  0.1  es quedarse con el 10% de los CONTINUA
 
 #Atencion, las semillas deben ser distintas
 PARAM$train$semilla_sampling  <- 102191
