@@ -15,10 +15,18 @@ require("lightgbm")
 
 #Parametros del script
 PARAM  <- list()
-PARAM$experimento  <- "DD9990"
+PARAM$experimento  <- "DD9999"
 PARAM$exp_input  <- "HT9420"
 
-PARAM$modelos  <- 1 #cuantos modelos quiero
+PARAM$modelos  <- 5 #cuantos modelos quiero
+
+PARAM$finalmodel$max_bin           <-     31
+PARAM$finalmodel$learning_rate     <-      0.0280015981   #0.0142501265
+PARAM$finalmodel$num_iterations    <-    50  #porque voy de a steps de 50 en complejidad
+PARAM$finalmodel$num_leaves        <-   1015  #784
+PARAM$finalmodel$min_data_in_leaf  <-   5542  #5628
+PARAM$finalmodel$feature_fraction  <-      0.7832319551  #0.8382482539
+PARAM$finalmodel$semilla           <- 131313
 
 # FIN Parametros del script
 
@@ -30,20 +38,6 @@ options(error = function() {
   options(error = NULL); 
   stop("exiting after script error") 
 })
-
-
-
-particionar  <- function( data,  division, agrupa="",  campo="fold", start=1, seed=NA )
-{
-  if( !is.na(seed) )   set.seed( seed )
-  
-  bloque  <- unlist( mapply(  function(x,y) { rep( y, x )} ,   division,  seq( from=start, length.out=length(division) )  ) )  
-  
-  data[ , (campo) :=  sample( rep( bloque, ceiling(.N/length(bloque))) )[1:.N],
-        by= agrupa ]
-}
-
-
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
 #Aqui empieza el programa
@@ -55,9 +49,9 @@ dir.create( paste0( base_dir, "exp/", PARAM$experimento, "/"), showWarnings = FA
 setwd(paste0( base_dir, "exp/", PARAM$experimento, "/"))   #Establezco el Working Directory DEL EXPERIMENTO
 
 #leo la salida de la optimizaciob bayesiana
-#arch_log  <- paste0( base_dir, "exp/", PARAM$exp_input, "/BO_log.txt" )
-#tb_log  <- fread( arch_log )
-#setorder( tb_log, -ganancia )
+arch_log  <- paste0( base_dir, "exp/", PARAM$exp_input, "/BO_log.txt" )
+tb_log  <- fread( arch_log )
+setorder( tb_log, -ganancia )
 
 #leo el nombre del expermento de la Training Strategy
 arch_TS  <- paste0( base_dir, "exp/", PARAM$exp_input, "/TrainingStrategy.txt" )
@@ -71,59 +65,20 @@ dataset  <- fread( arch_dataset )
 arch_future  <- paste0( base_dir, "exp/", TS, "/dataset_future.csv.gz" )
 dfuture <- fread( arch_future )
 
-
 #defino la clase binaria
 dataset[ , clase01 := ifelse( clase_ternaria %in% c("BAJA+1","BAJA+2"), 1, 0 )  ]
 
 campos_buenos  <- setdiff( colnames(dataset), c( "clase_ternaria", "clase01") )
 
-
-#######
-parametrosDD <-  list( 
-  boosting= "gbdt",               #puede ir  dart  , ni pruebe random_forest
-  objective= "binary",
-  metric= "custom",
-  first_metric_only= TRUE,
-  boost_from_average= TRUE,
-  feature_pre_filter= FALSE,
-  force_row_wise= TRUE,           #para que los alumnos no se atemoricen con tantos warning
-  verbosity= -100,
-  max_depth=  -1,                 # -1 significa no limitar,  por ahora lo dejo fijo
-  min_gain_to_split= 0.0,         #por ahora, lo dejo fijo
-  min_sum_hessian_in_leaf= 0.001, #por ahora, lo dejo fijo
-  lambda_l1= 0.0,                 #por ahora, lo dejo fijo
-  lambda_l2= 0.0,                 #por ahora, lo dejo fijo
-  max_bin= 31,                    #por ahora, lo dejo fijo
-  num_iterations= 5000,           #un numero muy grande, lo limita early_stopping_rounds
-  
-  bagging_fraction= 1.0,          #por ahora, lo dejo fijo
-  pos_bagging_fraction= 1.0,      #por ahora, lo dejo fijo
-  neg_bagging_fraction= 1.0,      #por ahora, lo dejo fijo
-  
-  drop_rate=  0.1,                #solo se activa en  dart
-  max_drop= 50,                   #solo se activa en  dart
-  skip_drop= 0.5,                 #solo se activa en  dart
-  
-  learning_rate = 0.2,
-  early_stopping_rounds = 4000,   # Corta cuando despuess de tantos arboles no vio una ganancia mejor a la maxima
-  feature_fraction = .7,
-  
-  extra_trees= FALSE,
-  
-  seed=  ksemilla
-)
-######
-
 #genero un modelo para cada uno de las modelos_qty MEJORES iteraciones de la Bayesian Optimization
 for( i in  1:PARAM$modelos )
 {
-  parametros  <- parametrosDD
-  #iteracion_bayesiana  <- parametros$iteracion_bayesiana
+  parametros  <- as.list( copy( tb_log[ i ] ) )
+  iteracion_bayesiana  <- parametros$iteracion_bayesiana
   
-  arch_modelo  <- paste0( "modelo_" ,
-                          sprintf( "%02d", i ),
+  arch_modelo  <- paste0( "modelo_steps" ,
+                          sprintf( "%02d", i*PARAM$finalmodel$num_iterations ),
                           ".model" )
-  
   
   #creo CADA VEZ el dataset de lightgbm
   dtrain  <- lgb.Dataset( data=    data.matrix( dataset[ , campos_buenos, with=FALSE] ),
@@ -132,49 +87,73 @@ for( i in  1:PARAM$modelos )
                           free_raw_data= FALSE
   )
   
-  particionar( dtrain, division=c(7,3), agrupa="clase_ternaria", seed= ksemilla )
+  ganancia  <- parametros$ganancia
+  
+  #elimino los parametros que no son de lightgbm
+  parametros$experimento  <- NULL
+  parametros$cols         <- NULL
+  parametros$rows         <- NULL
+  parametros$fecha        <- NULL
+  parametros$prob_corte   <- NULL
+  parametros$estimulos    <- NULL
+  parametros$ganancia     <- NULL
+  parametros$iteracion_bayesiana  <- NULL
+  
+  if( ! ("leaf_size_log" %in% names(parametros) ) )  stop( "El Hyperparameter Tuning debe tener en BO_log.txt  el pseudo hiperparametro  lead_size_log.\n" )
+  if( ! ("coverage" %in% names(parametros) ) ) stop( "El Hyperparameter Tuning debe tener en BO_log.txt  el pseudo hiperparametro  coverage.\n" )
+  
+  #Primero defino el tamaño de las hojas
+  #parametros$min_data_in_leaf  <- pmax( 1,  round( nrow(dtrain) / ( 2.0 ^ parametros$leaf_size_log ))  )
+  #Luego la cantidad de hojas en funcion del valor anterior, el coverage, y la cantidad de registros
+  #parametros$num_leaves  <-  pmin( 131072, pmax( 2,  round( parametros$coverage * nrow( dtrain ) / parametros$min_data_in_leaf ) ) )
+  #cat( "min_data_in_leaf:", parametros$min_data_in_leaf,  ",  num_leaves:", parametros$num_leaves, "\n" )
+  
+  #ya no me hacen falta
+  parametros$leaf_size_log  <- NULL
+  parametros$coverage  <- NULL
   
   #Utilizo la semilla definida en este script
   parametros$seed  <- ksemilla
   
+  param= list( objective=          "binary",
+               max_bin=            PARAM$finalmodel$max_bin,
+               learning_rate=      PARAM$finalmodel$learning_rate,
+               num_iterations=     i*(PARAM$finalmodel$num_iterations),
+               num_leaves=         PARAM$finalmodel$num_leaves,
+               min_data_in_leaf=   PARAM$finalmodel$min_data_in_leaf,
+               feature_fraction=   PARAM$finalmodel$feature_fraction,
+               seed=               PARAM$finalmodel$semilla
+  )
+  
   #genero el modelo entrenando en los datos finales
   set.seed( parametros$seed )
-  # modelo  <- lightgbm( data= dtrain[[fold==1]], #uso fold 1 como train
-  #                            param=  parametros,
-  #                            verbose= -100 )
-  modelo  <- lightgbm( data= dtrain[fold==1],
-                       valids= dtrain[fold==2],
-                       param=  parametros,
-                       verbose= -100 )
+  modelo_final  <- lightgbm( data= dtrain,
+                             param=  param,
+                             verbose= -100 )
   
   #grabo el modelo, achivo .model
-  lgb.save( modelo,
+  lgb.save( modelo_final,
             file= arch_modelo )
   
   #creo y grabo la importancia de variables
-  tb_importancia  <- as.data.table( lgb.importance( modelo ) )
+  tb_importancia  <- as.data.table( lgb.importance( modelo_final ) )
   fwrite( tb_importancia,
           file= paste0( "impo_", 
-                        sprintf( "%02d", i ),
+                        sprintf( "%02d", i*PARAM$finalmodel$num_iterations ),
                         ".txt" ),
           sep= "\t" )
   
+  
   #genero la prediccion, Scoring
-  prediccion  <- predict( modelo,
+  prediccion  <- predict( modelo_final,
                           data.matrix( dfuture[ , campos_buenos, with=FALSE ] ) )
-  
-  #aplico el modelo a los datos de testing
-  pred_val =predict( modelo,   #el modelo que genere recien
-                     dataset[ fold==2],  #fold==2  es validacion. 
-  )
-  
   
   tb_prediccion  <- dfuture[  , list( numero_de_cliente, foto_mes ) ]
   tb_prediccion[ , prob := prediccion ]
   
   
   nom_pred  <- paste0( "pred_",
-                       sprintf( "%02d", i ),
+                       sprintf( "%02d", i*PARAM$finalmodel$num_iterations ),
                        ".csv"  )
   
   fwrite( tb_prediccion,
@@ -199,6 +178,8 @@ for( i in  1:PARAM$modelos )
                            "_",
                            sprintf( "%02d", i ),
                            "_",
+                           sprintf( "%03d", i*PARAM$finalmodel$num_iterations),
+                           "_",
                            sprintf( "%05d", corte ),
                            ".csv" )
     
@@ -212,7 +193,7 @@ for( i in  1:PARAM$modelos )
   #borro y limpio la memoria para la vuelta siguiente del for
   rm( tb_prediccion )
   rm( tb_importancia )
-  rm( modelo)
+  rm( modelo_final)
   rm( parametros )
   rm( dtrain )
   gc()
