@@ -16,6 +16,7 @@ require("lightgbm")
 #  muy pronto esto se leera desde un archivo formato .yaml
 PARAM <- list()
 PARAM$experimento  <- "DDsimple"
+PARAM$modelos  <- 4 #poner cuantos modelos de creciente complejidad quiero
 
 #leo el dataset donde voy a entrenar el modelo final
 #arch_dataset  <- paste0( base_dir, "exp/", TS, "/dataset_train_final.csv.gz" )
@@ -31,11 +32,11 @@ PARAM$input$future        <- c( 202105 )
 
 PARAM$finalmodel$max_bin           <-     31
 PARAM$finalmodel$learning_rate     <-      0.0280015981   #0.0142501265
-PARAM$finalmodel$num_iterations    <-    328  #615
+PARAM$finalmodel$num_iterations    <-    50  #porque voy de a steps de 50 en complejidad
 PARAM$finalmodel$num_leaves        <-   1015  #784
 PARAM$finalmodel$min_data_in_leaf  <-   5542  #5628
 PARAM$finalmodel$feature_fraction  <-      0.7832319551  #0.8382482539
-PARAM$finalmodel$semilla           <- 102191
+PARAM$finalmodel$semilla           <- 131313
 
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
@@ -74,7 +75,8 @@ dir.create( paste0("./exp/", PARAM$experimento, "/" ), showWarnings = FALSE )
 setwd( paste0("./exp/", PARAM$experimento, "/" ) )   #Establezco el Working Directory DEL EXPERIMENTO
 
 
-
+for( i in  1:PARAM$modelos )
+{
 #dejo los datos en el formato que necesita LightGBM
 dtrain  <- lgb.Dataset( data= data.matrix(  dataset[ train==1L, campos_buenos, with=FALSE]),
                         label= dataset[ train==1L, clase01] )
@@ -85,7 +87,7 @@ modelo  <- lgb.train( data= dtrain,
                       param= list( objective=          "binary",
                                    max_bin=            PARAM$finalmodel$max_bin,
                                    learning_rate=      PARAM$finalmodel$learning_rate,
-                                   num_iterations=     PARAM$finalmodel$num_iterations,
+                                   num_iterations=     n*(PARAM$finalmodel$num_iterations),
                                    num_leaves=         PARAM$finalmodel$num_leaves,
                                    min_data_in_leaf=   PARAM$finalmodel$min_data_in_leaf,
                                    feature_fraction=   PARAM$finalmodel$feature_fraction,
@@ -134,10 +136,11 @@ for( envios  in  cortes )
   tb_entrega[ 1:envios, Predicted := 1L ]
   
   fwrite( tb_entrega[ , list(numero_de_cliente, Predicted)], 
-          file= paste0(  PARAM$experimento, "_", envios, ".csv" ),
+          file= paste0(  PARAM$experimento, "_",i,"_", envios, ".csv" ),
           sep= "," )
 }
 
+}
 #--------------------------------------
 
 quit( save= "no" )
