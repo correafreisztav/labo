@@ -18,11 +18,17 @@ PARAM  <- list()
 PARAM$experimento  <- "DD9999"
 PARAM$exp_input  <- "HT9420"
 
-PARAM$modelos  <- 5 #cuantos modelos quiero
+PARAM$modelos  <- 3 #cuantos modelos quiero
+PARAM$piso    <-    50  #solucion rapida para adicionar desde donde arranco
+secuencia  <- seq( from=  100, #secuencia solo se usará si es necesario
+                   to=   1000,
+                   by=     50 )
+
+
 
 PARAM$finalmodel$max_bin           <-     31
 PARAM$finalmodel$learning_rate     <-      0.0280015981   #0.0142501265
-PARAM$finalmodel$num_iterations    <-    50  #porque voy de a steps de 50 en complejidad
+PARAM$finalmodel$num_iterations    <-    50  #porque voy de a steps de 100 en complejidad
 PARAM$finalmodel$num_leaves        <-   1015  #784
 PARAM$finalmodel$min_data_in_leaf  <-   5542  #5628
 PARAM$finalmodel$feature_fraction  <-      0.7832319551  #0.8382482539
@@ -77,7 +83,7 @@ for( i in  1:PARAM$modelos )
   iteracion_bayesiana  <- parametros$iteracion_bayesiana
   
   arch_modelo  <- paste0( "modelo_steps" ,
-                          sprintf( "%02d", i*PARAM$finalmodel$num_iterations ),
+                          sprintf( "%02d", PARAM$piso+i*PARAM$finalmodel$num_iterations ),
                           ".model" )
   
   #creo CADA VEZ el dataset de lightgbm
@@ -118,7 +124,7 @@ for( i in  1:PARAM$modelos )
   param= list( objective=          "binary",
                max_bin=            PARAM$finalmodel$max_bin,
                learning_rate=      PARAM$finalmodel$learning_rate,
-               num_iterations=     i*(PARAM$finalmodel$num_iterations),
+               num_iterations=     PARAM$piso+i*(PARAM$finalmodel$num_iterations),
                num_leaves=         PARAM$finalmodel$num_leaves,
                min_data_in_leaf=   PARAM$finalmodel$min_data_in_leaf,
                feature_fraction=   PARAM$finalmodel$feature_fraction,
@@ -139,7 +145,7 @@ for( i in  1:PARAM$modelos )
   tb_importancia  <- as.data.table( lgb.importance( modelo_final ) )
   fwrite( tb_importancia,
           file= paste0( "impo_", 
-                        sprintf( "%02d", i*PARAM$finalmodel$num_iterations ),
+                        sprintf( "%02d", PARAM$piso+i*PARAM$finalmodel$num_iterations ),
                         ".txt" ),
           sep= "\t" )
   
@@ -153,7 +159,7 @@ for( i in  1:PARAM$modelos )
   
   
   nom_pred  <- paste0( "pred_",
-                       sprintf( "%02d", i*PARAM$finalmodel$num_iterations ),
+                       sprintf( "%02d", PARAM$piso+i*PARAM$finalmodel$num_iterations ),
                        ".csv"  )
   
   fwrite( tb_prediccion,
@@ -162,9 +168,9 @@ for( i in  1:PARAM$modelos )
   
   
   #genero los archivos para Kaggle
-  cortes  <- seq( from=  7000,
+  cortes  <- seq( from=  9000,
                   to=   11000,
-                  by=     500 )
+                  by=     1000 )
   
   
   setorder( tb_prediccion, -prob )
@@ -178,7 +184,7 @@ for( i in  1:PARAM$modelos )
                            "_",
                            sprintf( "%02d", i ),
                            "_",
-                           sprintf( "%03d", i*PARAM$finalmodel$num_iterations),
+                           sprintf( "%03d", PARAM$piso+i*PARAM$finalmodel$num_iterations),
                            "_",
                            sprintf( "%05d", corte ),
                            ".csv" )
@@ -189,7 +195,7 @@ for( i in  1:PARAM$modelos )
     
   }
   
-  
+  print(PARAM$piso+i*PARAM$finalmodel$num_iterations)
   #borro y limpio la memoria para la vuelta siguiente del for
   rm( tb_prediccion )
   rm( tb_importancia )
